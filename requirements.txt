@@ -1,0 +1,14 @@
+fastapi==0.115.0
+uvicorn[standard]==0.30.5
+temporalio==1.7.0
+pydantic==2.8.2
+pydantic-settings==2.4.0
+SQLAlchemy==2.0.31
+asyncpg==0.29.0
+aiokafka==0.10.0
+psycopg[binary]==3.2.13
+python-dotenv==1.0.1
+
+pytest==8.3.2
+httpx==0.27.0
+

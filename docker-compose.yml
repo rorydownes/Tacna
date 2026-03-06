@@ -1,0 +1,67 @@
+services:
+  api:
+    build:
+      context: .
+      dockerfile: api.Dockerfile
+    env_file:
+      - .env
+    depends_on:
+      - postgres
+      - temporal
+      - kafka
+    ports:
+      - "8000:8000"
+
+  worker:
+    build:
+      context: .
+      dockerfile: worker.Dockerfile
+    env_file:
+      - .env
+    depends_on:
+      - temporal
+      - kafka
+
+  temporal:
+    image: temporalio/temporal:latest
+    command: server start-dev --ip 0.0.0.0
+    ports:
+      - "7233:7233"
+      - "8233:8233"
+
+  postgres:
+    image: postgres:16
+    environment:
+      POSTGRES_DB: claims_db
+      POSTGRES_USER: claims_user
+      POSTGRES_PASSWORD: claims_password
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+
+  kafka:
+    image: apache/kafka:latest
+    hostname: kafka
+    ports:
+      - "9092:9092"
+    environment:
+      KAFKA_BROKER_ID: 1
+      KAFKA_LISTENER_SECURITY_PROTOCOL_MAP: PLAINTEXT:PLAINTEXT,CONTROLLER:PLAINTEXT
+      KAFKA_ADVERTISED_LISTENERS: PLAINTEXT://kafka:9092
+      KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR: 1
+      KAFKA_GROUP_INITIAL_REBALANCE_DELAY_MS: 0
+      KAFKA_TRANSACTION_STATE_LOG_MIN_ISR: 1
+      KAFKA_TRANSACTION_STATE_LOG_REPLICATION_FACTOR: 1
+      KAFKA_PROCESS_ROLES: broker,controller
+      KAFKA_NODE_ID: 1
+      KAFKA_CONTROLLER_QUORUM_VOTERS: 1@kafka:29093
+      KAFKA_LISTENERS: PLAINTEXT://0.0.0.0:9092,CONTROLLER://0.0.0.0:29093
+      KAFKA_INTER_BROKER_LISTENER_NAME: PLAINTEXT
+      KAFKA_CONTROLLER_LISTENER_NAMES: CONTROLLER
+      KAFKA_LOG_DIRS: /tmp/kraft-combined-logs
+      CLUSTER_ID: MkU3OEVBNTcwNTJENDM2Qk
+
+volumes:
+  postgres_data:
+
