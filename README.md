@@ -7,11 +7,8 @@ This repository is a proof of concept for a scalable medical claims processing p
 - **Kafka** for claim lifecycle events
 - **PostgreSQL** for persistence
 
-### Prerequisites
 
-- Docker and Docker Compose installed locally
-
-### One-time setup (optional)
+### One-time local development setup
 
 From the repo root, run the setup script to install prerequisites via Homebrew (Docker Desktop, Python 3.12, a virtualenv, and project deps). Safe to run multiple times:
 
