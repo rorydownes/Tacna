@@ -40,9 +40,14 @@ async def _check_temporal() -> bool:
 
 async def _check_worker() -> bool:
     client = await get_client()
-    response = await _describe_task_queue(client)
-    pollers = _extract_pollers(response)
-    return len(pollers) > 0
+    workflow_response = await _describe_task_queue(client, task_queue_type="workflow")
+    activity_response = await _describe_task_queue(client, task_queue_type="activity")
+    return any(
+        (
+            _has_pollers(workflow_response),
+            _has_pollers(activity_response),
+        )
+    )
 
 
 async def _call_temporal_get_system_info(client: Any) -> None:
@@ -60,7 +65,7 @@ async def _call_temporal_get_system_info(client: Any) -> None:
         return
 
 
-async def _describe_task_queue(client: Any) -> Any:
+async def _describe_task_queue(client: Any, task_queue_type: str) -> Any:
     workflow_service = getattr(client, "workflow_service", None)
     if workflow_service is None:
         return None
@@ -70,32 +75,55 @@ async def _describe_task_queue(client: Any) -> Any:
         from temporalio.api.taskqueue.v1 import TaskQueue
         from temporalio.api.workflowservice.v1 import DescribeTaskQueueRequest
 
+        queue_type = {
+            "workflow": TaskQueueType.TASK_QUEUE_TYPE_WORKFLOW,
+            "activity": TaskQueueType.TASK_QUEUE_TYPE_ACTIVITY,
+        }.get(task_queue_type)
+        if queue_type is None:
+            return None
+
         request = DescribeTaskQueueRequest(
             namespace=client.namespace,
             task_queue=TaskQueue(name=WORKER_TASK_QUEUE),
-            task_queue_type=TaskQueueType.TASK_QUEUE_TYPE_WORKFLOW,
+            task_queue_type=queue_type,
         )
         return await workflow_service.describe_task_queue(request)
     except Exception:
         return None
 
 
-def _extract_pollers(response: Any) -> list[Any]:
+def _has_pollers(response: Any) -> bool:
     if response is None:
-        return []
+        return False
 
-    # Temporal response types have shifted over SDK versions.
+    # Temporal response field names and collection types can vary by SDK version.
     for attr in ("pollers", "task_queue_status", "task_queue_pollers"):
         value = getattr(response, attr, None)
         if value is None:
             continue
-        if isinstance(value, list):
-            return value
-        pollers = getattr(value, "pollers", None)
-        if isinstance(pollers, list):
-            return pollers
+        pollers = _to_list(value)
+        if pollers:
+            return True
 
-    return []
+        pollers = getattr(value, "pollers", None)
+        if _to_list(pollers):
+            return True
+
+    return False
+
+
+def _to_list(value: Any) -> list[Any]:
+    if value is None:
+        return []
+    if isinstance(value, list):
+        return value
+    if isinstance(value, (str, bytes)):
+        return []
+
+    try:
+        return list(value)
+    except TypeError:
+        return []
 
 
 async def build_heartbeat() -> dict[str, Any]:
